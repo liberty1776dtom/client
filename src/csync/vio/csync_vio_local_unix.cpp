@@ -33,6 +33,7 @@
 #include "csync_util.h"
 
 #include "vio/csync_vio_local.h"
+#include "common/vfsplugin.h"
 
 #include <QtCore/QLoggingCategory>
 
@@ -88,7 +89,7 @@ int csync_vio_local_closedir(csync_vio_handle_t *dhandle) {
   return rc;
 }
 
-std::unique_ptr<csync_file_stat_t> csync_vio_local_readdir(csync_vio_handle_t *dhandle) {
+std::unique_ptr<csync_file_stat_t> csync_vio_local_readdir(CSYNC *ctx, csync_vio_handle_t *dhandle) {
 
   dhandle_t *handle = NULL;
 
@@ -138,6 +139,11 @@ std::unique_ptr<csync_file_stat_t> csync_vio_local_readdir(csync_vio_handle_t *d
       // Will get excluded by _csync_detect_update.
       file_stat->type = ItemTypeSkip;
   }
+
+  // Override type for virtual files if desired
+  if (ctx->vfs)
+      ctx->vfs->statTypeVirtualFile(file_stat.get(), nullptr);
+
   return file_stat;
 }
 

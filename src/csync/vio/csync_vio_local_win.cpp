@@ -35,6 +35,8 @@
 
 #include <QtCore/QLoggingCategory>
 
+#include "common/vfs.h"
+
 Q_LOGGING_CATEGORY(lcCSyncVIOLocal, "sync.csync.vio_local", QtInfoMsg)
 
 /*
@@ -137,7 +139,7 @@ static time_t FileTimeToUnixTime(FILETIME *filetime, DWORD *remainder)
     }
 }
 
-std::unique_ptr<csync_file_stat_t> csync_vio_local_readdir(csync_vio_handle_t *dhandle) {
+std::unique_ptr<csync_file_stat_t> csync_vio_local_readdir(CSYNC *ctx, csync_vio_handle_t *dhandle) {
 
   dhandle_t *handle = NULL;
   std::unique_ptr<csync_file_stat_t> file_stat;
@@ -164,12 +166,14 @@ std::unique_ptr<csync_file_stat_t> csync_vio_local_readdir(csync_vio_handle_t *d
   }
   auto path = c_utf8_from_locale(handle->ffd.cFileName);
   if (path == "." || path == "..")
-      return csync_vio_local_readdir(dhandle);
+      return csync_vio_local_readdir(ctx, dhandle);
 
   file_stat.reset(new csync_file_stat_t);
   file_stat->path = path;
 
-  if (handle->ffd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+    if (ctx->vfs && ctx->vfs->statTypeVirtualFile(file_stat.get(), &handle->ffd)) {
+      // all good
+    } else if (handle->ffd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
       // Detect symlinks, and treat junctions as symlinks too.
       if (handle->ffd.dwReserved0 == IO_REPARSE_TAG_SYMLINK
           || handle->ffd.dwReserved0 == IO_REPARSE_TAG_MOUNT_POINT) {
